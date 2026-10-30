@@ -1,0 +1,189 @@
+name: 'Scan Docker Image'
+description: 'Scans a Docker image using Grype and fails if critical vulnerabilities or high risk are found.'
+inputs:
+  image:
+    description: 'The Docker image to scan'
+    required: true
+  notify_matrix:
+    description: 'Whether to notify Matrix on findings'
+    required: false
+    default: 'false'
+  matrix_room:
+    description: 'Matrix room ID'
+    required: false
+  matrix_token:
+    description: 'Matrix access token'
+    required: false
+  github_token:
+    description: 'GitHub token for API access'
+    required: false
+outputs:
+  has_findings:
+    description: 'Whether vulnerabilities were found'
+    value: ${{ steps.check-results.outputs.has_findings }}
+  tier:
+    description: 'Triage tier of the findings'
+    value: ${{ steps.check-results.outputs.tier }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install Grype
+      shell: bash
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh -o install_grype.sh
+        chmod +x install_grype.sh
+        ./install_grype.sh -b /tmp
+        rm install_grype.sh
+
+    - name: Run Grype Scan
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        GRYPE_DB_CACHE_DIR: /home/ubuntu/.grype-db
+      run: |
+        /tmp/grype "$IMAGE" -o json > scan-results.json || true
+
+    - name: Check scan results
+      id: check-results
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+      run: |
+        set +e
+        if [ ! -f scan-results.json ]; then
+          echo "Scan results file not found!"
+          exit 1
+        fi
+
+        MAX_RISK=$(jq '[.matches[].vulnerability.risk // empty] | if length > 0 then (max * 10 | round / 10) else 0 end' scan-results.json)
+        CRITICAL=$(jq '[.matches[].vulnerability.severity] | map(select(. == "Critical")) | length' scan-results.json)
+        KEV=$(jq '[.matches[] | select((.vulnerability.knownExploited // []) | length > 0)] | length' scan-results.json)
+
+        TIER=$(jq -r '
+          if ([.matches // [] | .[]? | select(.vulnerability.kev == true or .vulnerability.knownExploited == true)] | length > 0) then "1 — Emergency"
+          elif ([.matches // [] | .[]? | select(
+            ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) >= 0.5
+            or
+            ((.vulnerability.cvss | if type == "array" then .[0].vector else .vector end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N"))
+          )] | length > 0) then "2 — Urgent"
+          elif ([.matches // [] | .[]? | select(.vulnerability.severity == "Critical" or .vulnerability.severity == "High")] | length > 0) then "3 — Scheduled"
+          else "4 — Backlog"
+          end' scan-results.json)
+
+        echo "MAX_RISK=${MAX_RISK}"
+        echo "CRITICAL=${CRITICAL}"
+        echo "KEV=${KEV}"
+        echo "TIER=${TIER}"
+
+        HAS_FINDINGS=false
+        if [[ "$TIER" == *"1"* ]] || [[ "$TIER" == *"2"* ]] || [[ "$TIER" == *"3"* ]]; then
+          HAS_FINDINGS=true
+        fi
+
+        echo "Found: ${HAS_FINDINGS}"
+        echo "has_findings=${HAS_FINDINGS}" >> $GITHUB_OUTPUT
+        echo "critical=${CRITICAL}" >> $GITHUB_OUTPUT
+        echo "kev=${KEV}" >> $GITHUB_OUTPUT
+        echo "max_risk=${MAX_RISK:-0}" >> $GITHUB_OUTPUT
+        echo "tier=${TIER}" >> $GITHUB_OUTPUT
+
+        REASON=$(jq -r '
+          if (.matches // [] | any(.vulnerability.kev == true or .vulnerability.knownExploited == true)) then "KEV"
+          elif (.matches // [] | any(.vulnerability.epss | (if type == "array" then .[0].epss else . end // 0) >= 0.5)) then "EPSS"
+          elif (.matches // [] | any(.vulnerability.cvss | (if type == "array" then .[0].vector else . end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N"))) then "Vector"
+          else ""
+          end' scan-results.json)
+        echo "reason=${REASON}" >> $GITHUB_OUTPUT
+
+        if [ "${HAS_FINDINGS}" = true ]; then
+          echo "### 🚨 Scan Summary for \`$IMAGE\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Triage Tier: ${TIER}**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| CVE | Component | Severity | Risk | KEV | Patch | Reason |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+          jq -r '.matches[] | select(.vulnerability.severity == "Critical" or .vulnerability.severity == "High") | "| \(.vulnerability.id) | \(.artifact.name) | \(.vulnerability.severity) | \(.vulnerability.risk * 10 | round / 10)% | \(if (.vulnerability.kev == true or .vulnerability.knownExploited == true) then "✅" else "❌" end) | \(if (.vulnerability.fix.state == "fixed") then "✅" else "❌" end) | \(if (.vulnerability.kev == true or .vulnerability.knownExploited == true) then "KEV" else (if ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) >= 0.5 then "EPSS" else (if ((.vulnerability.cvss | if type == "array" then .[0].vector else .vector end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N")) then "Vector" else "" end) end) end) |"' scan-results.json >> $GITHUB_STEP_SUMMARY
+        fi
+
+        if [ "${HAS_FINDINGS}" = true ]; then
+          echo "::error::Scan failed: Found vulnerabilities in Tier ${TIER}"
+          exit 1
+        fi
+
+    - name: Scan image (Table output for human review)
+      if: failure()
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        GRYPE_DB_CACHE_DIR: /home/ubuntu/.grype-db
+      run: |
+        /tmp/grype "$IMAGE"
+
+    - name: Notify on findings
+      if: always() && steps.check-results.outputs.has_findings == 'true' && inputs.notify_matrix == 'true'
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        ROOM_ID: ${{ inputs.matrix_room }}
+        ACCESS_TOKEN: ${{ inputs.matrix_token }}
+        IMAGE: ${{ inputs.image }}
+        CRITICAL: ${{ steps.check-results.outputs.critical }}
+        KEV: ${{ steps.check-results.outputs.kev }}
+        MAX_RISK: ${{ steps.check-results.outputs.max_risk }}
+        TIER: ${{ steps.check-results.outputs.tier }}
+        REASON: ${{ steps.check-results.outputs.reason }}
+        RUN_ID: ${{ github.run_id }}
+        REPOSITORY: ${{ github.repository }}
+      run: |
+        set +e
+
+        # Get Job ID for direct link to logs
+        JOB_ID=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+          "https://api.github.com/repos/$REPOSITORY/actions/runs/$RUN_ID/jobs" \
+          | jq -r --arg img "$IMAGE" '.jobs[] | select(.name == "build_release" or .name == "rebuild_and_scan") | .id' | head -n 1)
+
+        if [ -n "$JOB_ID" ]; then
+          URL="https://github.com/$REPOSITORY/actions/runs/$RUN_ID/job/$JOB_ID"
+        else
+          URL="https://github.com/$REPOSITORY/actions/runs/$RUN_ID"
+        fi
+
+        jq -nc \
+          --arg img "$IMAGE" \
+          --arg crit "$CRITICAL" \
+          --arg kev "$KEV" \
+          --arg risk "$MAX_RISK" \
+          --arg tier "$TIER" \
+          --arg reason "$REASON" \
+          --arg url "$URL" \
+          '{
+            msgtype: "m.text",
+            body: (
+              "Critical OCI image scan findings\n" +
+              "Tier: " + $tier + " (" + $reason + ")\n" +
+              "Image: " + $img + "\n" +
+              "Critical CVEs: " + $crit + "\n" +
+              "Max risk: " + $risk + "%\n" +
+              "KEV: " + $kev + "\n" +
+              "Run: " + $url
+            ),
+            format: "org.matrix.custom.html",
+            formatted_body: (
+              "<h3>🚨 Critical OCI image scan findings</h3>" +
+              "<table>" +
+              "<tr><td><b>Tier:</b></td><td>" + $tier + " (" + $reason + ")</td></tr>" +
+              "<tr><td><b>Image:</b></td><td>" + $img + "</td></tr>" +
+              "<tr><td><b>Critical CVEs:</b></td><td>" + $crit + "</td></tr>" +
+              "<tr><td><b>Max risk:</b></td><td>" + $risk + "%</td></tr>" +
+              "<tr><td><b>KEV:</b></td><td>" + $kev + "</td></tr>" +
+              "</table>" +
+              "<br>" +
+              "🔗 <a href=\"" + $url + "\">Open Scan Summary</a>"
+            )
+          }' | \
+          curl -sS -X POST \
+            "https://matrix.org/_matrix/client/r0/rooms/${ROOM_ID}/send/m.room.message" \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-binary @-
+      continue-on-error: true
