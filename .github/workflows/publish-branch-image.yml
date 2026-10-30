@@ -31,7 +31,7 @@ jobs:
         shell: bash
         run: |
           BRANCH=${GITHUB_REF#refs/heads/}
-          TAG=$(echo "$BRANCH" | sed 's/\\//-/g')
+          TAG=$(echo "$BRANCH" | sed 's|/|-|g')
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "Publishing branch $BRANCH as tag $TAG"
 
