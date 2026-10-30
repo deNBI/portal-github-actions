@@ -35,7 +35,7 @@ runs:
   using: "composite"
   steps:
     - name: Build Image
-      uses: denbi/portal-github-actions//build-image@main
+      uses: denbi/portal-github-actions//build-image@260565cbd8654f905bd99b5de428179f63480808 # main
       with:
         image: ${{ inputs.image }}
         dockerfile: ${{ inputs.dockerfile }}
@@ -44,7 +44,7 @@ runs:
         password: ${{ inputs.password }}
 
     - name: Scan Image
-      uses: denbi/portal-github-actions/scan-image@main
+      uses: denbi/portal-github-actions/scan-image@260565cbd8654f905bd99b5de428179f63480808 # main
       with:
         image: ${{ inputs.image }}
         notify_matrix: ${{ inputs.notify_matrix }}
