@@ -76,3 +76,9 @@ jobs:
         with:
           image: ${{ inputs.IMAGE_NAME }}:${{ steps.determine-tag.outputs.tag }}
           sbom_filename: ${{ github.event.repository.name }}-sbom-${{ steps.determine-tag.outputs.tag }}.spdx.json
+
+      - name: Cleanup Local Image
+        if: always()
+        uses: denbi/portal-github-actions/cleanup-image@main
+        with:
+          image: ${{ inputs.IMAGE_NAME }}:${{ steps.determine-tag.outputs.tag }}

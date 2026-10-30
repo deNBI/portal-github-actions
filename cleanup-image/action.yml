@@ -1,0 +1,14 @@
+name: 'Cleanup Docker Image'
+description: 'Removes a Docker image from the local runner to save space and ensure clean builds.'
+inputs:
+  image:
+    description: 'The full image tag to remove (e.g. localbuild/simplevm-backend:sha)'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Remove Docker Image
+      shell: bash
+      run: |
+        echo "Attempting to remove image: ${{ inputs.image }}"
+        docker rmi ${{ inputs.image }} || echo "Image ${{ inputs.image }} not found or could not be removed."
