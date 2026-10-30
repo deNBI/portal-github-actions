@@ -41,7 +41,7 @@ jobs:
           echo "Publishing branch $BRANCH as tag $TAG"
 
       - name: Build Image
-        uses: denbi/portal-github-actions/build-image@main
+        uses: denbi/portal-github-actions/build-image@260565cbd8654f905bd99b5de428179f63480808 # main
         with:
           image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
           dockerfile: ${{ inputs.dockerfile }}
@@ -49,19 +49,19 @@ jobs:
           password: ${{ secrets.OCI_TOKEN }}
 
       - name: Scan Image
-        uses: denbi/portal-github-actions/scan-image@main
+        uses: denbi/portal-github-actions/scan-image@260565cbd8654f905bd99b5de428179f63480808 # main
         with:
           image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
           notify_matrix: false
 
       - name: Generate and Publish Image
-        uses: denbi/portal-github-actions/publish-image@main
+        uses: denbi/portal-github-actions/publish-image@260565cbd8654f905bd99b5de428179f63480808 # main
         with:
           image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
           sbom_filename: ${{ github.event.repository.name }}-sbom-${{ steps.branch_tag.outputs.tag }}.spdx.json
 
       - name: Cleanup Local Image
         if: always()
-        uses: denbi/portal-github-actions/cleanup-image@main
+        uses: denbi/portal-github-actions/cleanup-image@260565cbd8654f905bd99b5de428179f63480808 # main
         with:
           image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
