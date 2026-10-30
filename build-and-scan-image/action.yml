@@ -1,0 +1,53 @@
+name: 'Build and Scan Docker Image'
+description: 'Builds a Docker image and immediately performs a security scan.'
+inputs:
+  image:
+    description: 'The full image tag to build (e.g. registry/repo:tag)'
+    required: true
+  dockerfile:
+    description: 'Path to the Dockerfile'
+    required: true
+  registry:
+    description: 'The registry URL'
+    required: false
+    default: 'oci.bi.denbi.de'
+  username:
+    description: 'Registry username'
+    required: true
+  password:
+    description: 'Registry password'
+    required: true
+  notify_matrix:
+    description: 'Whether to notify Matrix on findings'
+    required: false
+    default: 'false'
+  matrix_room:
+    description: 'Matrix room ID'
+    required: false
+  matrix_token:
+    description: 'Matrix access token'
+    required: false
+  github_token:
+    description: 'GitHub token for API access'
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - name: Build Image
+      uses: denbi/portal-github-actions/build-image@main
+      with:
+        image: ${{ inputs.image }}
+        dockerfile: ${{ inputs.dockerfile }}
+        registry: ${{ inputs.registry }}
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}
+
+    - name: Scan Image
+      uses: denbi/portal-github-actions/scan-image@main
+      with:
+        image: ${{ inputs.image }}
+        notify_matrix: ${{ inputs.notify_matrix }}
+        matrix_room: ${{ inputs.matrix_room }}
+        matrix_token: ${{ inputs.matrix_token }}
+        github_token: ${{ inputs.github_token }}
