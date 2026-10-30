@@ -1,0 +1,56 @@
+name: Publish Branch Image
+
+on:
+  workflow_call:
+    inputs:
+      image_name:
+        description: 'The base name of the image (e.g. oci.bi.denbi.de/simplevm/simplevm-backend)'
+        required: true
+        type: string
+      dockerfile:
+        description: 'Path to the Dockerfile'
+        required: false
+        default: 'compose/production/django/Dockerfile'
+        type: string
+    secrets:
+      OCI_USERNAME:
+        required: true
+      OCI_TOKEN:
+        required: true
+      GITHUB_TOKEN:
+        required: true
+
+jobs:
+  publish:
+    runs-on: [self-hosted, production, build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract and sanitize branch name
+        id: branch_tag
+        shell: bash
+        run: |
+          BRANCH=${GITHUB_REF#refs/heads/}
+          TAG=$(echo "$BRANCH" | sed 's/\\//-/g')
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Publishing branch $BRANCH as tag $TAG"
+
+      - name: Build Image
+        uses: denbi/portal-github-actions/build-image@main
+        with:
+          image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
+          dockerfile: ${{ inputs.dockerfile }}
+          username: ${{ secrets.OCI_USERNAME }}
+          password: ${{ secrets.OCI_TOKEN }}
+
+      - name: Scan Image
+        uses: denbi/portal-github-actions/scan-image@main
+        with:
+          image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
+          notify_matrix: false
+
+      - name: Generate and Publish Image
+        uses: denbi/portal-github-actions/publish-image@main
+        with:
+          image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
+          sbom_filename: ${{ github.event.repository.name }}-sbom-${{ steps.branch_tag.outputs.tag }}.spdx.json
