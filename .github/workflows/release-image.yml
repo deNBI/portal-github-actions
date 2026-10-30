@@ -3,33 +3,27 @@ name: Generic Release Image Workflow
 on:
   workflow_call:
     inputs:
-      image_name:
+      IMAGE_NAME:
         description: 'The base name of the image (e.g. oci.bi.denbi.de/simplevm/simplevm-backend)'
         required: true
         type: string
-      image_tag:
+      IMAGE_TAG:
         description: 'The tag for the image. If not provided, the latest git tag is used.'
         required: false
         type: string
-      dockerfile:
+      DOCKERFILE:
         description: 'Path to the Dockerfile'
-        required: false
-        default: 'compose/production/django/Dockerfile'
+        required: true
         type: string
-      notify_matrix:
+      NOTIFY_MATRIX:
         description: 'Whether to notify Matrix on findings'
         required: false
-        default: 'false'
+        default: false
         type: boolean
-      matrix_room:
-        description: 'Matrix room ID'
-        required: false
-        type: string
-      matrix_token:
-        description: 'Matrix access token'
-        required: false
-        type: string
+
     secrets:
+      MATRIX_ROOM:
+        required: false
       OCI_USERNAME:
         required: true
       OCI_TOKEN:
@@ -51,9 +45,9 @@ jobs:
         id: determine-tag
         shell: bash
         run: |
-          if [ -n "${{ inputs.image_tag }}" ]; then
-            echo "Using provided tag: ${{ inputs.image_tag }}"
-            echo "tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+          if [ -n "${{ inputs.IMAGE_TAG }}" ]; then
+            echo "Using provided tag: ${{ inputs.IMAGE_TAG }}"
+            echo "tag=${{ inputs.IMAGE_TAG }}" >> $GITHUB_OUTPUT
           else
             TAG=$(git describe --tags $(git rev-list --tags --max-count=1))
             echo "No tag provided. Using latest git tag: $TAG"
@@ -63,22 +57,22 @@ jobs:
       - name: Build Image
         uses: denbi/portal-github-actions/build-image@main
         with:
-          image: ${{ inputs.image_name }}:${{ steps.determine-tag.outputs.tag }}
-          dockerfile: ${{ inputs.dockerfile }}
+          image: ${{ inputs.IMAGE_NAME }}:${{ steps.determine-tag.outputs.tag }}
+          dockerfile: ${{ inputs.DOCKERFILE }}
           username: ${{ secrets.OCI_USERNAME }}
           password: ${{ secrets.OCI_TOKEN }}
 
       - name: Scan Image
         uses: denbi/portal-github-actions/scan-image@main
         with:
-          image: ${{ inputs.image_name }}:${{ steps.determine-tag.outputs.tag }}
-          notify_matrix: ${{ inputs.notify_matrix }}
-          matrix_room: ${{ inputs.matrix_room }}
-          matrix_token: ${{ secrets.MATRIX_ACCESS_TOKEN }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          IMAGE: ${{ inputs.IMAGE_NAME }}:${{ steps.determine-tag.outputs.tag }}
+          NOTIFY_MATRIX: ${{ inputs.NOTIFY_MATRIX }}
+          MATRIX_ROOM: ${{ secrets.MATRIX_ROOM }}
+          MATRIX_TOKEN: ${{ secrets.MATRIX_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate and Publish Image
         uses: denbi/portal-github-actions/publish-image@main
         with:
-          image: ${{ inputs.image_name }}:${{ steps.determine-tag.outputs.tag }}
+          image: ${{ inputs.IMAGE_NAME }}:${{ steps.determine-tag.outputs.tag }}
           sbom_filename: ${{ github.event.repository.name }}-sbom-${{ steps.determine-tag.outputs.tag }}.spdx.json

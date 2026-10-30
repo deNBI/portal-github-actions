@@ -1,20 +1,20 @@
 name: 'Scan Docker Image'
 description: 'Scans a Docker image using Grype and fails if critical vulnerabilities or high risk are found.'
 inputs:
-  image:
+  IMAGE:
     description: 'The Docker image to scan'
     required: true
-  notify_matrix:
+  NOTIFY_MATRIX:
     description: 'Whether to notify Matrix on findings'
     required: false
     default: 'false'
-  matrix_room:
+  MATRIX_ROOM:
     description: 'Matrix room ID'
     required: false
-  matrix_token:
+  MATRIX_TOKEN:
     description: 'Matrix access token'
     required: false
-  github_token:
+  GITHUB_TOKEN:
     description: 'GitHub token for API access'
     required: false
 outputs:
@@ -39,7 +39,7 @@ runs:
     - name: Run Grype Scan
       shell: bash
       env:
-        IMAGE: ${{ inputs.image }}
+        IMAGE: ${{ inputs.IMAGE }}
         GRYPE_DB_CACHE_DIR: /home/ubuntu/.grype-db
       run: |
         /tmp/grype "$IMAGE" -o json > scan-results.json || true
@@ -48,7 +48,7 @@ runs:
       id: check-results
       shell: bash
       env:
-        IMAGE: ${{ inputs.image }}
+        IMAGE: ${{ inputs.IMAGE }}
       run: |
         set +e
         if [ ! -f scan-results.json ]; then
@@ -114,19 +114,19 @@ runs:
       if: failure()
       shell: bash
       env:
-        IMAGE: ${{ inputs.image }}
+        IMAGE: ${{ inputs.IMAGE }}
         GRYPE_DB_CACHE_DIR: /home/ubuntu/.grype-db
       run: |
         /tmp/grype "$IMAGE"
 
     - name: Notify on findings
-      if: always() && steps.check-results.outputs.has_findings == 'true' && inputs.notify_matrix == 'true'
+      if: always() && steps.check-results.outputs.has_findings == 'true' && inputs.NOTIFY_MATRIX == 'true'
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ inputs.github_token }}
-        ROOM_ID: ${{ inputs.matrix_room }}
-        ACCESS_TOKEN: ${{ inputs.matrix_token }}
-        IMAGE: ${{ inputs.image }}
+        GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
+        ROOM_ID: ${{ inputs.MATRIX_ROOM }}
+        ACCESS_TOKEN: ${{ inputs.MATRIX_TOKEN }}
+        IMAGE: ${{ inputs.IMAGE }}
         CRITICAL: ${{ steps.check-results.outputs.critical }}
         KEV: ${{ steps.check-results.outputs.kev }}
         MAX_RISK: ${{ steps.check-results.outputs.max_risk }}
