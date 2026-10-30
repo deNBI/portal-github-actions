@@ -28,7 +28,7 @@ on:
         required: true
       OCI_TOKEN:
         required: true
-      GITHUB_TOKEN:
+      CUSTOM_GITHUB_TOKEN:
         required: true
       MATRIX_ACCESS_TOKEN:
         required: false
@@ -69,7 +69,7 @@ jobs:
           NOTIFY_MATRIX: ${{ inputs.NOTIFY_MATRIX }}
           MATRIX_ROOM: ${{ secrets.MATRIX_ROOM }}
           MATRIX_TOKEN: ${{ secrets.MATRIX_ACCESS_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
 
       - name: Generate and Publish Image
         uses: denbi/portal-github-actions/publish-image@main
