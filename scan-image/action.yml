@@ -60,16 +60,19 @@ runs:
         CRITICAL=$(jq '[.matches[].vulnerability.severity] | map(select(. == "Critical")) | length' scan-results.json)
         KEV=$(jq '[.matches[] | select((.vulnerability.knownExploited // []) | length > 0)] | length' scan-results.json)
 
-        TIER=$(jq -r '
-          if ([.matches // [] | .[]? | select(.vulnerability.kev == true or .vulnerability.knownExploited == true)] | length > 0) then "1 — Emergency"
-          elif ([.matches // [] | .[]? | select(
-            ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) >= 0.5
-            or
-            ((.vulnerability.cvss | if type == "array" then .[0].vector else .vector end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N"))
-          )] | length > 0) then "2 — Urgent"
-          elif ([.matches // [] | .[]? | select(.vulnerability.severity == "Critical" or .vulnerability.severity == "High")] | length > 0) then "3 — Scheduled"
-          else "4 — Backlog"
-          end' scan-results.json)
+        if [ "$KEV" -gt 0 ]; then
+          TIER="1 — Emergency"
+        else
+          TIER=$(jq -r '
+            if ([.matches // [] | .[]? | select(
+              ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) >= 0.5
+              or
+              ((.vulnerability.cvss | if type == "array" then .[0].vector else .vector end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N"))
+            )] | length > 0) then "2 — Urgent"
+            elif ([.matches // [] | .[]? | select(.vulnerability.severity == "Critical" or .vulnerability.severity == "High")] | length > 0) then "3 — Scheduled"
+            else "4 — Backlog"
+            end' scan-results.json)
+        fi
 
         echo "MAX_RISK=${MAX_RISK}"
         echo "CRITICAL=${CRITICAL}"
@@ -102,7 +105,13 @@ runs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| CVE | Component | Severity | Risk | KEV | Patch | Reason |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-          jq -r '.matches[] | select(.vulnerability.severity == "Critical" or .vulnerability.severity == "High") | "| \(.vulnerability.id) | \(.artifact.name) | \(.vulnerability.severity) | \(.vulnerability.risk * 10 | round / 10)% | \(if (.vulnerability.kev == true or .vulnerability.knownExploited == true) then "✅" else "❌" end) | \(if (.vulnerability.fix.state == "fixed") then "✅" else "❌" end) | \(if (.vulnerability.kev == true or .vulnerability.knownExploited == true) then "KEV" else (if ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) >= 0.5 then "EPSS" else (if ((.vulnerability.cvss | if type == "array" then .[0].vector else .vector end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N")) then "Vector" else "" end) end) end) |"' scan-results.json >> $GITHUB_STEP_SUMMARY
+          jq -r '.matches[] | select(
+            .vulnerability.severity == "Critical" or
+            .vulnerability.severity == "High" or
+            (.vulnerability.kev == true or .vulnerability.knownExploited == true) or
+            ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) >= 0.5 or
+            ((.vulnerability.cvss | if type == "array" then .[0].vector else .vector end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N"))
+          ) | "| \(.vulnerability.id) | \(.artifact.name) | \(.vulnerability.severity) | \(.vulnerability.risk * 10 | round / 10)% | \(if (.vulnerability.kev == true or .vulnerability.knownExploited == true) then "✅" else "❌" end) | \(if (.vulnerability.fix.state == "fixed") then "✅" else "❌" end) | \(if (.vulnerability.kev == true or .vulnerability.knownExploited == true) then "KEV" else (if ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) >= 0.5 then "EPSS" else (if ((.vulnerability.cvss | if type == "array" then .[0].vector else .vector end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N")) then "Vector" else "" end) end) end) |"' scan-results.json >> $GITHUB_STEP_SUMMARY
         fi
 
         if [ "${HAS_FINDINGS}" = true ]; then
