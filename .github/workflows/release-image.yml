@@ -20,6 +20,11 @@ on:
         required: false
         default: false
         type: boolean
+      RUNS_ON:
+        description: 'Runner labels to use (JSON array)'
+        required: false
+        default: '["self-hosted", "production", "build"]'
+        type: string
 
     secrets:
       MATRIX_ROOM:
@@ -35,7 +40,7 @@ on:
 
 jobs:
   build_scan_publish:
-    runs-on: [self-hosted, production, build]
+    runs-on: ${{ fromJSON(inputs.RUNS_ON) }}
     steps:
       - uses: actions/checkout@v4
         with:

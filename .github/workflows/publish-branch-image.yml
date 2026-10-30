@@ -12,6 +12,11 @@ on:
         required: false
         default: 'compose/production/django/Dockerfile'
         type: string
+      runs_on:
+        description: 'Runner labels to use (JSON array)'
+        required: false
+        default: '["self-hosted", "production", "build"]'
+        type: string
     secrets:
       OCI_USERNAME:
         required: true
@@ -22,7 +27,7 @@ on:
 
 jobs:
   publish:
-    runs-on: [self-hosted, production, build]
+    runs-on: ${{ fromJSON(inputs.runs_on) }}
     steps:
       - uses: actions/checkout@v4
 
