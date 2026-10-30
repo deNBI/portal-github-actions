@@ -40,7 +40,7 @@ runs:
       shell: bash
       env:
         IMAGE: ${{ inputs.IMAGE }}
-        GRYPE_DB_CACHE_DIR: /home/ubuntu/.grype-db
+        GRYPE_DB_CACHE_DIR: /tmp/grype-db
       run: |
         /tmp/grype "$IMAGE" -o json > scan-results.json || true
 
@@ -124,7 +124,7 @@ runs:
       shell: bash
       env:
         IMAGE: ${{ inputs.IMAGE }}
-        GRYPE_DB_CACHE_DIR: /home/ubuntu/.grype-db
+        GRYPE_DB_CACHE_DIR: /tmp/grype-db
       run: |
         /tmp/grype "$IMAGE"
 
