@@ -54,22 +54,17 @@ jobs:
             echo "tag=$TAG" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build Image
-        uses: denbi/portal-github-actions/build-image@main
+      - name: Build and Scan Image
+        uses: denbi/portal-github-actions/build-and-scan-image@main
         with:
           image: ${{ inputs.IMAGE_NAME }}:${{ steps.determine-tag.outputs.tag }}
           dockerfile: ${{ inputs.DOCKERFILE }}
           username: ${{ secrets.OCI_USERNAME }}
           password: ${{ secrets.OCI_TOKEN }}
-
-      - name: Scan Image
-        uses: denbi/portal-github-actions/scan-image@main
-        with:
-          IMAGE: ${{ inputs.IMAGE_NAME }}:${{ steps.determine-tag.outputs.tag }}
-          NOTIFY_MATRIX: ${{ inputs.NOTIFY_MATRIX }}
-          MATRIX_ROOM: ${{ secrets.MATRIX_ROOM }}
-          MATRIX_TOKEN: ${{ secrets.MATRIX_ACCESS_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
+          notify_matrix: ${{ inputs.NOTIFY_MATRIX }}
+          matrix_room: ${{ secrets.MATRIX_ROOM }}
+          matrix_token: ${{ secrets.MATRIX_ACCESS_TOKEN }}
+          github_token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
 
       - name: Generate and Publish Image
         uses: denbi/portal-github-actions/publish-image@main
