@@ -30,6 +30,10 @@ inputs:
   github_token:
     description: 'GitHub token for API access'
     required: false
+  context:
+    description: 'Build context path'
+    required: false
+    default: '.'
   build_args:
     description: 'Build arguments as a comma-separated string (KEY=VALUE,KEY2=VALUE2)'
     required: false
@@ -39,10 +43,11 @@ runs:
   using: "composite"
   steps:
     - name: Build Image
-      uses: denbi/portal-github-actions//build-image@7f2b45bb881a47ae9aaec8e4a154e5f607ba9077 # main
+      uses: denbi/portal-github-actions/build-image@main
       with:
         image: ${{ inputs.image }}
         dockerfile: ${{ inputs.dockerfile }}
+        context: ${{ inputs.context }}
         registry: ${{ inputs.registry }}
         username: ${{ inputs.username }}
         password: ${{ inputs.password }}

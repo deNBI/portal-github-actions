@@ -17,6 +17,10 @@ inputs:
   password:
     description: 'Registry password'
     required: true
+  context:
+    description: 'Build context path'
+    required: false
+    default: '.'
   build_args:
     description: 'Build arguments as a comma-separated string (KEY=VALUE,KEY2=VALUE2)'
     required: false
@@ -38,6 +42,7 @@ runs:
     - name: Build and load image
       uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
       with:
+        context: ${{ inputs.context }}
         file: ${{ inputs.dockerfile }}
         push: false
         tags: ${{ inputs.image }}
