@@ -47,7 +47,7 @@ jobs:
   build_scan_publish:
     runs-on: ${{ fromJSON(inputs.RUNS_ON) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -67,7 +67,7 @@ jobs:
           fi
 
       - name: Build and Scan Image
-        uses: denbi/portal-github-actions/build-and-scan-image@main
+        uses: denbi/portal-github-actions/build-and-scan-image@7f2b45bb881a47ae9aaec8e4a154e5f607ba9077 # main
         with:
           image: ${{ inputs.IMAGE_NAME }}:${{ steps.determine-tag.outputs.tag }}
           dockerfile: ${{ inputs.DOCKERFILE }}
@@ -80,13 +80,13 @@ jobs:
           build_args: ${{ inputs.BUILD_ARGS }}
 
       - name: Generate and Publish Image
-        uses: denbi/portal-github-actions/publish-image@main
+        uses: denbi/portal-github-actions/publish-image@7f2b45bb881a47ae9aaec8e4a154e5f607ba9077 # main
         with:
           image: ${{ inputs.IMAGE_NAME }}:${{ steps.determine-tag.outputs.tag }}
           sbom_filename: ${{ github.event.repository.name }}-sbom-${{ steps.determine-tag.outputs.tag }}.spdx.json
 
       - name: Cleanup Local Image
         if: always()
-        uses: denbi/portal-github-actions/cleanup-image@main
+        uses: denbi/portal-github-actions/cleanup-image@7f2b45bb881a47ae9aaec8e4a154e5f607ba9077 # main
         with:
           image: ${{ inputs.IMAGE_NAME }}:${{ steps.determine-tag.outputs.tag }}

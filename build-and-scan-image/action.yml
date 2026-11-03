@@ -39,7 +39,7 @@ runs:
   using: "composite"
   steps:
     - name: Build Image
-      uses: denbi/portal-github-actions/build-image@main
+      uses: denbi/portal-github-actions//build-image@7f2b45bb881a47ae9aaec8e4a154e5f607ba9077 # main
       with:
         image: ${{ inputs.image }}
         dockerfile: ${{ inputs.dockerfile }}
@@ -49,7 +49,7 @@ runs:
         build_args: ${{ inputs.build_args }}
 
     - name: Scan Image
-      uses: denbi/portal-github-actions/scan-image@main
+      uses: denbi/portal-github-actions/scan-image@7f2b45bb881a47ae9aaec8e4a154e5f607ba9077 # main
       with:
         image: ${{ inputs.image }}
         notify_matrix: ${{ inputs.notify_matrix }}
