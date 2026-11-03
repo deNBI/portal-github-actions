@@ -30,18 +30,23 @@ inputs:
   github_token:
     description: 'GitHub token for API access'
     required: false
+  build_args:
+    description: 'Build arguments as a comma-separated string (KEY=VALUE,KEY2=VALUE2)'
+    required: false
+    default: ''
 
 runs:
   using: "composite"
   steps:
     - name: Build Image
-      uses: denbi/portal-github-actions//build-image@main
+      uses: denbi/portal-github-actions/build-image@main
       with:
         image: ${{ inputs.image }}
         dockerfile: ${{ inputs.dockerfile }}
         registry: ${{ inputs.registry }}
         username: ${{ inputs.username }}
         password: ${{ inputs.password }}
+        build_args: ${{ inputs.build_args }}
 
     - name: Scan Image
       uses: denbi/portal-github-actions/scan-image@main

@@ -17,6 +17,10 @@ inputs:
   password:
     description: 'Registry password'
     required: true
+  build_args:
+    description: 'Build arguments as a comma-separated string (KEY=VALUE,KEY2=VALUE2)'
+    required: false
+    default: ''
 
 runs:
   using: "composite"
@@ -38,3 +42,4 @@ runs:
         push: false
         tags: ${{ inputs.image }}
         load: true
+        build-args: ${{ inputs.build_args }}
