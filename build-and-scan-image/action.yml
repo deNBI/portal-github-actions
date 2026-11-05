@@ -54,7 +54,7 @@ runs:
         build_args: ${{ inputs.build_args }}
 
     - name: Scan Image
-      uses: denbi/portal-github-actions/scan-image@7f2b45bb881a47ae9aaec8e4a154e5f607ba9077 # main
+      uses: denbi/portal-github-actions/scan-image@2f190e1e6649b25ba31c6f56ad0c221a7e572b42 # main
       with:
         image: ${{ inputs.image }}
         notify_matrix: ${{ inputs.notify_matrix }}
