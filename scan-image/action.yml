@@ -120,13 +120,13 @@ runs:
         fi
 
     - name: Scan image (Table output for human review)
-      if: failure()
+      if: always()
       shell: bash
       env:
         IMAGE: ${{ inputs.IMAGE }}
         GRYPE_DB_CACHE_DIR: /tmp/grype-db
       run: |
-        /tmp/grype "$IMAGE"
+        /tmp/grype "$IMAGE" --show-suppressed
 
     - name: Notify on findings
       if: always() && steps.check-results.outputs.has_findings == 'true' && inputs.NOTIFY_MATRIX == 'true'
