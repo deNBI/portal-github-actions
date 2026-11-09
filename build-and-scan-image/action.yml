@@ -43,7 +43,7 @@ runs:
   using: "composite"
   steps:
     - name: Build Image
-      uses: denbi/portal-github-actions/build-image@main
+      uses: denbi/portal-github-actions/build-image@9cfe2115ab4cd57ca0f5d97c5682a82cf2b00793 # main
       with:
         image: ${{ inputs.image }}
         dockerfile: ${{ inputs.dockerfile }}
