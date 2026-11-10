@@ -1,0 +1,73 @@
+name: Publish Branch Image (No Scan)
+
+# ⚠️ NO-SCAN BYPASS ⚠️
+# Sister workflow of publish-branch-image.yml that SKIPS the image scan.
+#
+# Use this when the scan would fail (image deemed "not safe") but you still
+# need the branch image in the registry to test it on staging. It builds and
+# publishes the SAME image:tag as the scanned workflow, so it overwrites any
+# previously published image for that branch.
+#
+# It does NOT run the Grype scan and does NOT notify Matrix. Do not use this
+# for production releases - use publish-branch-image.yml / release-image.yml
+# for those.
+
+on:
+  workflow_call:
+    inputs:
+      image_name:
+        description: 'The base name of the image (e.g. oci.bi.denbi.de/simplevm/simplevm-backend)'
+        required: true
+        type: string
+      dockerfile:
+        description: 'Path to the Dockerfile'
+        required: false
+        default: 'compose/production/django/Dockerfile'
+        type: string
+      runs_on:
+        description: 'Runner labels to use (JSON array)'
+        required: false
+        default: '["self-hosted", "production", "build"]'
+        type: string
+    secrets:
+      OCI_USERNAME:
+        required: true
+      OCI_TOKEN:
+        required: true
+
+jobs:
+  publish:
+    runs-on: ${{ fromJSON(inputs.runs_on) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Extract and sanitize branch name
+        id: branch_tag
+        shell: bash
+        run: |
+          BRANCH=${GITHUB_REF#refs/heads/}
+          TAG=$(echo "$BRANCH" | sed 's|/|-|g')
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Publishing branch $BRANCH as tag $TAG (NO SCAN)"
+
+      - name: Build Image
+        uses: denbi/portal-github-actions/build-image@9cfe2115ab4cd57ca0f5d97c5682a82cf2b00793 # main
+        with:
+          image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
+          dockerfile: ${{ inputs.dockerfile }}
+          username: ${{ secrets.OCI_USERNAME }}
+          password: ${{ secrets.OCI_TOKEN }}
+
+      # NOTE: scan step intentionally omitted - this is the no-scan bypass.
+
+      - name: Generate and Publish Image
+        uses: denbi/portal-github-actions/publish-image@9cfe2115ab4cd57ca0f5d97c5682a82cf2b00793 # main
+        with:
+          image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
+          sbom_filename: ${{ github.event.repository.name }}-sbom-${{ steps.branch_tag.outputs.tag }}.spdx.json
+
+      - name: Cleanup Local Image
+        if: always()
+        uses: denbi/portal-github-actions/cleanup-image@9cfe2115ab4cd57ca0f5d97c5682a82cf2b00793 # main
+        with:
+          image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
