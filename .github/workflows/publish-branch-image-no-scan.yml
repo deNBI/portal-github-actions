@@ -51,7 +51,7 @@ jobs:
           echo "Publishing branch $BRANCH as tag $TAG (NO SCAN)"
 
       - name: Build Image
-        uses: denbi/portal-github-actions/build-image@9cfe2115ab4cd57ca0f5d97c5682a82cf2b00793 # main
+        uses: denbi/portal-github-actions/build-image@02ae1f46b32e057557da1e90ec0e4c28b7c3754d # main
         with:
           image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
           dockerfile: ${{ inputs.dockerfile }}
@@ -61,13 +61,13 @@ jobs:
       # NOTE: scan step intentionally omitted - this is the no-scan bypass.
 
       - name: Generate and Publish Image
-        uses: denbi/portal-github-actions/publish-image@9cfe2115ab4cd57ca0f5d97c5682a82cf2b00793 # main
+        uses: denbi/portal-github-actions/publish-image@02ae1f46b32e057557da1e90ec0e4c28b7c3754d # main
         with:
           image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
           sbom_filename: ${{ github.event.repository.name }}-sbom-${{ steps.branch_tag.outputs.tag }}.spdx.json
 
       - name: Cleanup Local Image
         if: always()
-        uses: denbi/portal-github-actions/cleanup-image@9cfe2115ab4cd57ca0f5d97c5682a82cf2b00793 # main
+        uses: denbi/portal-github-actions/cleanup-image@02ae1f46b32e057557da1e90ec0e4c28b7c3754d # main
         with:
           image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
