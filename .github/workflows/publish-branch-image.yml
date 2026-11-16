@@ -17,6 +17,11 @@ on:
         required: false
         default: '["self-hosted", "production", "build"]'
         type: string
+      fail_on_findings:
+        description: 'Whether to abort the publish if the scan finds vulnerabilities (Tier 1/2)'
+        required: false
+        default: true
+        type: boolean
     secrets:
       OCI_USERNAME:
         required: true
@@ -48,15 +53,15 @@ jobs:
           username: ${{ secrets.OCI_USERNAME }}
           password: ${{ secrets.OCI_TOKEN }}
 
-      # The scan always runs, but does NOT block the publish: even if it finds
-      # vulnerabilities (Tier 1/2), the image is published anyway. Findings are
-      # still reported in the step summary.
+      # The scan always runs. If fail_on_findings is true (default), the publish
+      # is aborted on Tier 1/2 findings. If false, the image is published
+      # anyway and findings are only reported in the step summary.
       - name: Scan Image
         uses: denbi/portal-github-actions/scan-image@main
         with:
           image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
           notify_matrix: false
-          fail_on_findings: false
+          fail_on_findings: ${{ inputs.fail_on_findings }}
 
       - name: Generate and Publish Image
         uses: denbi/portal-github-actions/publish-image@main
