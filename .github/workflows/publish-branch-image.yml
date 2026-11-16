@@ -41,7 +41,7 @@ jobs:
           echo "Publishing branch $BRANCH as tag $TAG"
 
       - name: Build Image
-        uses: denbi/portal-github-actions/build-image@4779662915b831754a969b9c907584b41c15b0c4 # main
+        uses: denbi/portal-github-actions/build-image@main
         with:
           image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
           dockerfile: ${{ inputs.dockerfile }}
@@ -52,20 +52,20 @@ jobs:
       # vulnerabilities (Tier 1/2), the image is published anyway. Findings are
       # still reported in the step summary.
       - name: Scan Image
-        uses: denbi/portal-github-actions/scan-image@4779662915b831754a969b9c907584b41c15b0c4 # main
+        uses: denbi/portal-github-actions/scan-image@main
         with:
           image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
           notify_matrix: false
           fail_on_findings: false
 
       - name: Generate and Publish Image
-        uses: denbi/portal-github-actions/publish-image@4779662915b831754a969b9c907584b41c15b0c4 # main
+        uses: denbi/portal-github-actions/publish-image@main
         with:
           image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
           sbom_filename: ${{ github.event.repository.name }}-sbom-${{ steps.branch_tag.outputs.tag }}.spdx.json
 
       - name: Cleanup Local Image
         if: always()
-        uses: denbi/portal-github-actions/cleanup-image@4779662915b831754a969b9c907584b41c15b0c4 # main
+        uses: denbi/portal-github-actions/cleanup-image@main
         with:
           image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}

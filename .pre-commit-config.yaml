@@ -14,7 +14,15 @@ repos:
     rev: 'v1.178.0'
     hooks:
       - id: semgrep
-        args: ['--config', 'https://semgrep.dev/p/default', '--error', '--skip-unknown-extensions']
+        args:
+          [
+            '--config', 'https://semgrep.dev/p/default',
+            '--error', '--skip-unknown-extensions',
+            # Self-referencing actions use @main (no digest pin) to avoid a
+            # Renovate self-update PR loop; exclude that rule as a supply-chain
+            # attack is not a risk for an internal repo we control.
+            '--exclude-rule', 'yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag',
+          ]
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.18.2

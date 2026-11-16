@@ -13,7 +13,7 @@
     {
       "matchManagers": ["github-actions"],
       "matchDepTypes": ["internal"],
-      "description": "Do not update self-referencing action digests - keep them pinned to the current HEAD commit to avoid an endless PR loop. Self-referencing digests are ours, so no minimum release age applies.",
+      "description": "Self-referencing actions use @main - do not propose digest pins or updates to avoid an endless PR loop.",
       "enabled": false,
       "minimumReleaseAge": false
     },
