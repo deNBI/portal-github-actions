@@ -25,6 +25,11 @@ on:
         required: false
         default: ''
         type: string
+      FAIL_ON_FINDINGS:
+        description: 'Whether to fail the release when the image scan finds vulnerabilities'
+        required: false
+        default: true
+        type: boolean
       RUNS_ON:
         description: 'Runner labels to use (JSON array)'
         required: false
@@ -78,6 +83,7 @@ jobs:
           matrix_token: ${{ secrets.MATRIX_ACCESS_TOKEN }}
           github_token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
           build_args: ${{ inputs.BUILD_ARGS }}
+          fail_on_findings: ${{ inputs.FAIL_ON_FINDINGS }}
 
       - name: Generate and Publish Image
         uses: denbi/portal-github-actions/publish-image@9cfe2115ab4cd57ca0f5d97c5682a82cf2b00793 # main

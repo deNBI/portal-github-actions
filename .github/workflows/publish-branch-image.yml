@@ -48,11 +48,15 @@ jobs:
           username: ${{ secrets.OCI_USERNAME }}
           password: ${{ secrets.OCI_TOKEN }}
 
+      # The scan always runs, but does NOT block the publish: even if it finds
+      # vulnerabilities (Tier 1/2), the image is published anyway. Findings are
+      # still reported in the step summary.
       - name: Scan Image
         uses: denbi/portal-github-actions/scan-image@9cfe2115ab4cd57ca0f5d97c5682a82cf2b00793 # main
         with:
           image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
           notify_matrix: false
+          fail_on_findings: false
 
       - name: Generate and Publish Image
         uses: denbi/portal-github-actions/publish-image@9cfe2115ab4cd57ca0f5d97c5682a82cf2b00793 # main

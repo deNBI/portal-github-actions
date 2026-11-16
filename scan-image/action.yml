@@ -4,6 +4,10 @@ inputs:
   IMAGE:
     description: 'The Docker image to scan'
     required: true
+  FAIL_ON_FINDINGS:
+    description: 'Whether to fail the build when vulnerabilities are found (set to false to scan without blocking, e.g. for branch images)'
+    required: false
+    default: 'true'
   NOTIFY_MATRIX:
     description: 'Whether to notify Matrix on findings'
     required: false
@@ -49,6 +53,7 @@ runs:
       shell: bash
       env:
         IMAGE: ${{ inputs.IMAGE }}
+        FAIL_ON_FINDINGS: ${{ inputs.FAIL_ON_FINDINGS }}
       run: |
         set +e
         if [ ! -f scan-results.json ]; then
@@ -115,8 +120,12 @@ runs:
         fi
 
         if [[ "$TIER" == *"1"* ]] || [[ "$TIER" == *"2"* ]]; then
-          echo "::error::Scan failed: Found vulnerabilities in Tier ${TIER}"
-          exit 1
+          if [ "$FAIL_ON_FINDINGS" = "true" ]; then
+            echo "::error::Scan failed: Found vulnerabilities in Tier ${TIER}"
+            exit 1
+          else
+            echo "::warning::Scan found vulnerabilities in Tier ${TIER}, but FAIL_ON_FINDINGS is disabled - continuing"
+          fi
         fi
 
     - name: Scan image (Table output for human review)

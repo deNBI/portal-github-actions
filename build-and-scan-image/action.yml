@@ -34,6 +34,10 @@ inputs:
     description: 'Build context path'
     required: false
     default: '.'
+  fail_on_findings:
+    description: 'Whether to fail the build when vulnerabilities are found (set to false to scan without blocking)'
+    required: false
+    default: 'true'
   build_args:
     description: 'Build arguments as a comma-separated string (KEY=VALUE,KEY2=VALUE2)'
     required: false
@@ -61,3 +65,4 @@ runs:
         matrix_room: ${{ inputs.matrix_room }}
         matrix_token: ${{ inputs.matrix_token }}
         github_token: ${{ inputs.github_token }}
+        fail_on_findings: ${{ inputs.fail_on_findings }}
