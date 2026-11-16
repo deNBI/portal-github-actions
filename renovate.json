@@ -4,4 +4,25 @@
     "config:best-practices",
     "helpers:pinGitHubActionDigests"
   ],
+  "ignorePaths": [
+    "libc6_2.39-0ubuntu8.9_amd64.deb",
+    "plans"
+  ],
+  "minimumReleaseAge": "7 days",
+  "packageRules": [
+    {
+      "matchManagers": ["github-actions"],
+      "matchDepTypes": ["internal"],
+      "description": "Do not update self-referencing action digests - keep them pinned to the current HEAD commit to avoid an endless PR loop. Self-referencing digests are ours, so no minimum release age applies.",
+      "enabled": false,
+      "minimumReleaseAge": false
+    },
+    {
+      "description": "Limit digest-only update PRs to once per day to avoid PR churn",
+      "matchUpdateTypes": ["digest"],
+      "schedule": [
+        "before 11pm every day"
+      ]
+    }
+  ]
 }
