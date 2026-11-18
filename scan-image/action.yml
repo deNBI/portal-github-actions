@@ -58,14 +58,20 @@ runs:
         set +e
 
         # Normalize FAIL_ON_FINDINGS: trim whitespace and lowercase so that
-        # "True", " TRUE", etc. all mean the same thing. Only an explicit "true"
-        # blocks the build; everything else (false, 0, empty, an unexpanded
-        # ${{ }} expression) is treated as non-blocking. This prevents the
-        # action from silently defaulting to blocking when a caller passes the
-        # value with a different key case or format.
-        FAIL_ON_FINDINGS_NORMALIZED=$(echo "${FAIL_ON_FINDINGS:-false}" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
-        if [ "$FAIL_ON_FINDINGS_NORMALIZED" != "true" ] && [ "$FAIL_ON_FINDINGS_NORMALIZED" != "false" ]; then
-          echo "::warning::Unrecognized FAIL_ON_FINDINGS value '${FAIL_ON_FINDINGS:-}' - treating as 'false' (non-blocking)"
+        # "True", " TRUE", etc. all mean the same thing.
+        #   - empty / unset      -> "true"  (strict: block on findings, matches the
+        #                               action's documented default)
+        #   - "true"/"True"/...  -> "true"  (block)
+        #   - "false"/"False"... -> "false" (scan only, do not block)
+        #   - any other value    -> "false" (non-blocking) + warning, so a typo or
+        #                             an unexpanded ${{ }} expression cannot
+        #                             silently block the build.
+        RAW_FAIL_ON_FINDINGS="${FAIL_ON_FINDINGS:-}"
+        FAIL_ON_FINDINGS_NORMALIZED=$(echo "$RAW_FAIL_ON_FINDINGS" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+        if [ -z "$FAIL_ON_FINDINGS_NORMALIZED" ]; then
+          FAIL_ON_FINDINGS_NORMALIZED=true
+        elif [ "$FAIL_ON_FINDINGS_NORMALIZED" != "true" ] && [ "$FAIL_ON_FINDINGS_NORMALIZED" != "false" ]; then
+          echo "::warning::Unrecognized FAIL_ON_FINDINGS value '${RAW_FAIL_ON_FINDINGS}' - treating as 'false' (non-blocking)"
           FAIL_ON_FINDINGS_NORMALIZED=false
         fi
 
