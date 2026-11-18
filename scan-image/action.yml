@@ -53,21 +53,10 @@ runs:
       shell: bash
       env:
         IMAGE: ${{ inputs.IMAGE }}
-        # The action input is declared lowercase (fail_on_findings); it is read
-        # into the FAIL_ON_FINDINGS env var below and normalized in the run script.
         FAIL_ON_FINDINGS: ${{ inputs.fail_on_findings }}
       run: |
         set +e
 
-        # Normalize FAIL_ON_FINDINGS: trim whitespace and lowercase so that
-        # "True", " TRUE", etc. all mean the same thing.
-        #   - empty / unset      -> "true"  (strict: block on findings, matches the
-        #                               action's documented default)
-        #   - "true"/"True"/...  -> "true"  (block)
-        #   - "false"/"False"... -> "false" (scan only, do not block)
-        #   - any other value    -> "false" (non-blocking) + warning, so a typo or
-        #                             an unexpanded expression placeholder cannot
-        #                             silently block the build.
         RAW_FAIL_ON_FINDINGS="${FAIL_ON_FINDINGS:-}"
         FAIL_ON_FINDINGS_NORMALIZED=$(echo "$RAW_FAIL_ON_FINDINGS" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
         if [ -z "$FAIL_ON_FINDINGS_NORMALIZED" ]; then
