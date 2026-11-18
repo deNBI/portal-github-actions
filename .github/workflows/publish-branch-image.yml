@@ -61,9 +61,9 @@ jobs:
         with:
           image: ${{ inputs.image_name }}:${{ steps.branch_tag.outputs.tag }}
           notify_matrix: false
-          # scan-image declares this input in UPPERCASE (FAIL_ON_FINDINGS);
+          # scan-image declares this input in LOWERCASE (fail_on_findings);
           # the key is case-sensitive and must match exactly.
-          FAIL_ON_FINDINGS: ${{ inputs.fail_on_findings }}
+          fail_on_findings: ${{ inputs.fail_on_findings }}
 
       - name: Generate and Publish Image
         uses: denbi/portal-github-actions/publish-image@main

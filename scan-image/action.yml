@@ -4,7 +4,7 @@ inputs:
   IMAGE:
     description: 'The Docker image to scan'
     required: true
-  FAIL_ON_FINDINGS:
+  fail_on_findings:
     description: 'Whether to fail the build when vulnerabilities are found (set to false to scan without blocking, e.g. for branch images)'
     required: false
     default: 'true'
@@ -53,7 +53,9 @@ runs:
       shell: bash
       env:
         IMAGE: ${{ inputs.IMAGE }}
-        FAIL_ON_FINDINGS: ${{ inputs.FAIL_ON_FINDINGS }}
+        # The action input is declared lowercase (fail_on_findings); it is read
+        # into the FAIL_ON_FINDINGS env var below and normalized in the run script.
+        FAIL_ON_FINDINGS: ${{ inputs.fail_on_findings }}
       run: |
         set +e
 
