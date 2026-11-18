@@ -65,4 +65,8 @@ runs:
         matrix_room: ${{ inputs.matrix_room }}
         matrix_token: ${{ inputs.matrix_token }}
         github_token: ${{ inputs.github_token }}
-        fail_on_findings: ${{ inputs.fail_on_findings }}
+        # scan-image declares this input in UPPERCASE (FAIL_ON_FINDINGS).
+        # GitHub Actions input keys are case-sensitive, so the key here MUST
+        # match exactly or scan-image silently falls back to its default "true"
+        # and the publish aborts even when the caller asked for fail-soft.
+        FAIL_ON_FINDINGS: ${{ inputs.fail_on_findings }}
