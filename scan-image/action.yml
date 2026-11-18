@@ -61,22 +61,29 @@ runs:
           exit 1
         fi
 
-        MAX_RISK=$(jq '[.matches[].vulnerability.risk // empty] | if length > 0 then (max * 10 | round / 10) else 0 end' scan-results.json)
-        CRITICAL=$(jq '[.matches[].vulnerability.severity] | map(select(. == "Critical")) | length' scan-results.json)
-        KEV=$(jq '[.matches[] | select((.vulnerability.knownExploited // []) | length > 0)] | length' scan-results.json)
+        # Extract all matches (including suppressed ones) and store them for the
+        # summary table, so nothing is left out of the triage tier / per-CVE view.
+        # (The JSON from `grype -o json` contains every match; `--show-suppressed`
+        # only affects the human-readable console output.)
+        jq '[.matches // [] | .[]]' scan-results.json > scan-matches.json
+        MATCH_COUNT=$(jq 'length' scan-matches.json)
+
+        MAX_RISK=$(jq '[.[].vulnerability.risk // empty] | if length > 0 then (max * 10 | round / 10) else 0 end' scan-matches.json)
+        CRITICAL=$(jq '[.[].vulnerability.severity] | map(select(. == "Critical")) | length' scan-matches.json)
+        KEV=$(jq '[.[] | select((.vulnerability.knownExploited // []) | length > 0)] | length' scan-matches.json)
 
         if [ "$KEV" -gt 0 ]; then
           TIER="1 — Emergency"
         else
           TIER=$(jq -r '
-            if ([.matches // [] | .[]? | select(
+            if ([.[] | select(
               ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) >= 0.5
               or
               ((.vulnerability.cvss | if type == "array" then .[0].vector else .vector end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N"))
             )] | length > 0) then "2 — Urgent"
-            elif ([.matches // [] | .[]? | select(.vulnerability.severity == "Critical" or .vulnerability.severity == "High")] | length > 0) then "3 — Scheduled"
+            elif ([.[] | select(.vulnerability.severity == "Critical" or .vulnerability.severity == "High")] | length > 0) then "3 — Scheduled"
             else "4 — Backlog"
-            end' scan-results.json)
+            end' scan-matches.json)
         fi
 
         echo "MAX_RISK=${MAX_RISK}"
@@ -97,27 +104,12 @@ runs:
         echo "tier=${TIER}" >> $GITHUB_OUTPUT
 
         REASON=$(jq -r '
-          if (.matches // [] | any(.vulnerability.kev == true or .vulnerability.knownExploited == true)) then "KEV"
-          elif (.matches // [] | any(.vulnerability.epss | (if type == "array" then .[0].epss else . end // 0) >= 0.5)) then "EPSS"
-          elif (.matches // [] | any(.vulnerability.cvss | (if type == "array" then .[0].vector else . end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N"))) then "Vector"
+          if (any(.[]; .vulnerability.kev == true or .vulnerability.knownExploited == true)) then "KEV"
+          elif (any(.[]; .vulnerability.epss | (if type == "array" then .[0].epss else . end // 0) >= 0.5)) then "EPSS"
+          elif (any(.[]; .vulnerability.cvss | (if type == "array" then .[0].vector else . end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N"))) then "Vector"
           else ""
-          end' scan-results.json)
+          end' scan-matches.json)
         echo "reason=${REASON}" >> $GITHUB_OUTPUT
-
-        if [ -f scan-results.json ] && [ $(jq '.matches | length' scan-results.json) -gt 0 ]; then
-          echo "### 🚨 Scan Summary for \`$IMAGE\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Overall Triage Tier: ${TIER}**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| CVE | Tier | Component | Severity | Risk | EPSS | KEV | Patch | Reason |" >> $GITHUB_STEP_SUMMARY
-          echo "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-          jq -r '.matches | map(. + {
-            tier: (if (.vulnerability.kev == true or .vulnerability.knownExploited == true) then 1
-                   else (if (((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) >= 0.5 or ((.vulnerability.cvss | if type == "array" then .[0].vector else .vector end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N"))) then 2
-                         else (if (.vulnerability.severity == "Critical" or .vulnerability.severity == "High") then 3
-                               else 4 end) end) end)
-          }) | sort_by(.tier) | .[] |
-            "| \(.vulnerability.id) | \(.tier) | \(.artifact.name) | \(.vulnerability.severity) | \(.vulnerability.risk * 10 | round / 10)% | \(if ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) == 0 then "-" else ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) * 100 | round / 100) end) | \(if (.vulnerability.kev == true or .vulnerability.knownExploited == true) then "✅" else "❌" end) | \(if (.vulnerability.fix.state == "fixed") then "✅" else "❌" end) | \(if (.vulnerability.kev == true or .vulnerability.knownExploited == true) then "KEV" else (if ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) >= 0.5 then "EPSS" else (if ((.vulnerability.cvss | if type == "array" then .[0].vector else .vector end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N")) then "Vector" else "" end) end) end) |"' scan-results.json >> $GITHUB_STEP_SUMMARY
-        fi
 
         if [[ "$TIER" == *"1"* ]] || [[ "$TIER" == *"2"* ]]; then
           if [ "$FAIL_ON_FINDINGS" = "true" ]; then
@@ -136,6 +128,50 @@ runs:
         GRYPE_DB_CACHE_DIR: /tmp/grype-db
       run: |
         /tmp/grype "$IMAGE" --show-suppressed
+
+    - name: Write scan summary (append, safe to run multiple times)
+      if: always()
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.IMAGE }}
+        TIER: ${{ steps.check-results.outputs.tier }}
+      run: |
+        set +e
+        if [ ! -f scan-matches.json ]; then
+          # Check step did not run (e.g. scan failed). Fall back to the raw results.
+          if [ -f scan-results.json ]; then
+            jq '[.matches // [] | .[]]' scan-results.json > scan-matches.json || true
+          fi
+        fi
+
+        if [ -f scan-matches.json ] && [ "$(jq 'length' scan-matches.json)" -gt 0 ]; then
+          MARKER="<!-- scan-summary: $IMAGE -->"
+          # Only write if not already present, so the summary is not duplicated
+          # when the composite action runs the same step more than once.
+          if grep -qF -- "$MARKER" "$GITHUB_STEP_SUMMARY" 2>/dev/null; then
+            echo "Scan summary already present in $GITHUB_STEP_SUMMARY, skipping append."
+          else
+            {
+              echo "$MARKER"
+              echo "### 🚨 Scan Summary for \`$IMAGE\`"
+              if [ -n "$TIER" ]; then
+                echo "**Overall Triage Tier: ${TIER}**"
+              fi
+              echo ""
+              echo "| CVE | Tier | Component | Severity | Risk | EPSS | KEV | Patch | Reason |"
+              echo "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
+              jq -r 'map(. + {
+                tier: (if (.vulnerability.kev == true or .vulnerability.knownExploited == true) then 1
+                       else (if (((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) >= 0.5 or ((.vulnerability.cvss | if type == "array" then .[0].vector else .vector end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N"))) then 2
+                             else (if (.vulnerability.severity == "Critical" or .vulnerability.severity == "High") then 3
+                                   else 4 end) end) end)
+              }) | sort_by(.tier) | .[] |
+                "| \(.vulnerability.id) | \(.tier) | \(.artifact.name) | \(.vulnerability.severity) | \(.vulnerability.risk * 10 | round / 10)% | \(if ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) == 0 then "-" else ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) * 100 | round / 100) end) | \(if (.vulnerability.kev == true or .vulnerability.knownExploited == true) then "✅" else "❌" end) | \(if (.vulnerability.fix.state == "fixed") then "✅" else "❌" end) | \(if (.vulnerability.kev == true or .vulnerability.knownExploited == true) then "KEV" else (if ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) >= 0.5 then "EPSS" else (if ((.vulnerability.cvss | if type == "array" then .[0].vector else .vector end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N")) then "Vector" else "" end) end) end) |"' scan-matches.json
+            } >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "No matches to write to the scan summary."
+        fi
 
     - name: Notify on findings
       if: always() && steps.check-results.outputs.has_findings == 'true' && inputs.NOTIFY_MATRIX == 'true'
