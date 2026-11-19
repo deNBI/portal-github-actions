@@ -114,7 +114,7 @@ runs:
         echo "tier=${TIER}" >> $GITHUB_OUTPUT
 
         REASON=$(jq -r '
-          if (any(.[]; .vulnerability.kev == true or .vulnerability.knownExploited == true)) then "KEV"
+          if (any(.[]; (.vulnerability.knownExploited // []) | length > 0)) then "KEV"
           elif (any(.[]; .vulnerability.epss | (if type == "array" then .[0].epss else . end // 0) >= 0.5)) then "EPSS"
           elif (any(.[]; .vulnerability.cvss | (if type == "array" then .[0].vector else . end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N"))) then "Vector"
           else ""
@@ -171,12 +171,12 @@ runs:
               echo "| CVE | Tier | Component | Severity | Risk | EPSS | KEV | Patch | Reason |"
               echo "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
               jq -r 'map(. + {
-                tier: (if (.vulnerability.kev == true or .vulnerability.knownExploited == true) then 1
+                tier: (if (.vulnerability.knownExploited // []) | length > 0 then 1
                        else (if (((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) >= 0.5 or ((.vulnerability.cvss | if type == "array" then .[0].vector else .vector end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N"))) then 2
                              else (if (.vulnerability.severity == "Critical" or .vulnerability.severity == "High") then 3
                                    else 4 end) end) end)
               }) | sort_by(.tier) | .[] |
-                "| \(.vulnerability.id) | \(.tier) | \(.artifact.name) | \(.vulnerability.severity) | \(.vulnerability.risk * 10 | round / 10)% | \(if ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) == 0 then "-" else ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) * 100 | round / 100) end) | \(if (.vulnerability.kev == true or .vulnerability.knownExploited == true) then "✅" else "❌" end) | \(if (.vulnerability.fix.state == "fixed") then "✅" else "❌" end) | \(if (.vulnerability.kev == true or .vulnerability.knownExploited == true) then "KEV" else (if ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) >= 0.5 then "EPSS" else (if ((.vulnerability.cvss | if type == "array" then .[0].vector else .vector end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N")) then "Vector" else "" end) end) end) |"' scan-matches.json
+                "| \(.vulnerability.id) | \(.tier) | \(.artifact.name) | \(.vulnerability.severity) | \(.vulnerability.risk * 10 | round / 10)% | \(if ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) == 0 then "-" else ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) * 100 | round / 100) end) | \(if (.vulnerability.knownExploited // []) | length > 0 then "✅" else "❌" end) | \(if (.vulnerability.fix.state == "fixed") then "✅" else "❌" end) | \(if (.vulnerability.knownExploited // []) | length > 0 then "KEV" else (if ((.vulnerability.epss | if type == "array" then .[0].epss else .epss end) // 0) >= 0.5 then "EPSS" else (if ((.vulnerability.cvss | if type == "array" then .[0].vector else .vector end // "") | contains("AV:N") and contains("PR:N") and contains("UI:N")) then "Vector" else "" end) end) end) |"' scan-matches.json
             } >> $GITHUB_STEP_SUMMARY
           fi
         else
